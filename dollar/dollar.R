@@ -252,3 +252,77 @@ p6 <- final_experiment %>%
        title = "Aportes diários em BOVA11",
        subtitle  = "Leva em conta aportes diários baseados nas quedas da bolsa",
        caption = "Oráculo de Delfos (2021)")
+
+
+# Correções em experimentos
+# Havia um pequeno erro nos experimentos anteriores, eu utilizei a variação percentual
+# para corrigir o valor dos montantes, mas isso gerava alguma diferença quando compará-
+# vamos com os preços com o número de cotas. Dessa maneira, reexecuto os experimentos
+# usando somente o preço das cotas.
+
+# EXP1
+
+experiment_data <- BOVA11.SA %>%
+  tidy() %>% 
+  filter(str_detect(series, "Close"), index >= "2020-01-01", index < "2021-01-01") %>% 
+  select(index, series, value) %>% 
+  mutate(final_value = 875 * value)
+
+p4 <- experiment_data %>% 
+  ggplot(aes(x = index, y = final_value))+
+  geom_line(color = "firebrick2", size = 1.5, alpha = 0.7) +
+  geom_vline(xintercept = date("2020-03-23"), linetype = 2) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "R$", big.mark = ".", decimal.mark = ",")) +
+  labs(x = "Mês",
+       y = "Valor da carteira (em R$)",
+       title = "Aporte único em BOVA11",
+       subtitle  = "Leva em conta aporte que ocorreu em 01/01/2021",
+       caption = "Oráculo de Delfos (2021)")
+
+# EXP2
+
+df1 <- experiment_data %>% 
+  select(index, value) %>% 
+  mutate(month = month(index)) %>% 
+  filter(!duplicated(month)) %>% 
+  mutate(quotas = floor(8333/value),
+         cumulated_quotas = cumsum(quotas)) %>% 
+  select(index, cumulated_quotas)
+
+df2 <- experiment_data %>% 
+  select(index, value)
+
+df3 <- left_join(df2, df1, by = "index") %>% 
+  fill(cumulated_quotas) %>% 
+  mutate(total = value * cumulated_quotas) 
+  
+
+p5 <- df3 %>% 
+  ggplot(aes(x = index, y = total))+
+  geom_line(color = "firebrick2", size = 1.5, alpha = 0.7) +
+  geom_vline(xintercept = date("2020-03-23"), linetype = 2) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "R$", big.mark = ".", decimal.mark = ",")) +
+  labs(x = "Mês",
+       y = "Valor da carteira (em R$)",
+       title = "Aportes mensais em BOVA11",
+       subtitle  = "Leva em conta aportes próximos de R$8.333,00 mensais em todo dia primeiro de cada mês",
+       caption = "Oráculo de Delfos (2021)")
+
+# EXP3
+
+new_experiment <- new_experiment %>% 
+  select(index, prices, number_quotas) %>% 
+  mutate(cumulated_quotas = cumsum(number_quotas), total = prices * cumulated_quotas)
+
+p6 <- new_experiment %>% 
+  ggplot(aes(x = index, y = total))+
+  geom_line(color = "firebrick2", size = 1.5, alpha = 0.7) +
+  geom_vline(xintercept = date("2020-03-23"), linetype = 2) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "R$", big.mark = ".", decimal.mark = ",")) +
+  labs(x = "Mês",
+       y = "Valor da carteira (em R$)",
+       title = "Aportes diários em BOVA11",
+       subtitle  = "Leva em conta aportes diários baseados nas quedas da bolsa",
+       caption = "Oráculo de Delfos (2021)")
+
+map(c('p4', 'p5', 'p6'), function(x) ggsave(paste0(x, ".png"), plot = get(x)))
